@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom'; 
-import Header from './components/header.jsx';
+import img1 from '/p1-1.webp';
 
 const BookTanker = ({ tankers = [] }) => {
 
@@ -13,7 +13,6 @@ const BookTanker = ({ tankers = [] }) => {
 
   return (
     <>
-      <Header />
       <main className="container mx-auto my-8 px-4 font-poppins">
         {/* Page Header */}
         <div className="text-center py-8">
@@ -30,7 +29,7 @@ const BookTanker = ({ tankers = [] }) => {
             tankers.map((tanker) => (
               <div key={tanker.id} className="col-span-1">
                 <div className="bg-white-bg rounded-[15px] border border-border-color shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl flex flex-col h-full overflow-hidden">
-                  
+                  <img src={img1} alt="Tanker" className="w-full h-48 object-cover" />
                   {/* Card Header */}
                   <div className="bg-light-blue-bg p-4 border-b border-border-color">
                     <h5 className="text-xl font-semibold text-primary-blue-dark leading-tight">
@@ -51,13 +50,13 @@ const BookTanker = ({ tankers = [] }) => {
                   <div className="p-6 flex flex-col grow">
                     <div className="space-y-3 mb-6">
                       <div className="flex justify-between items-center text-text-muted">
-                        <span>Capacity</span>
+                        <span>Description</span>
                         <strong className="text-text-dark font-medium">
-                          {tanker.capacity_litres.toLocaleString('en-IN')} Litres
+                          Very well maintained.
                         </strong>
                       </div>
                       <div className="flex justify-between items-center text-text-muted">
-                        <span>Price / 1000L</span>
+                        <span>Price / 1hr</span>
                         <strong className="text-text-dark font-medium">
                           ₹{tanker.price_per_1000_litres.toLocaleString('en-IN')}
                         </strong>

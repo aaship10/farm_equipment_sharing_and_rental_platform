@@ -11,7 +11,7 @@ function Header() {
     const links = [
         { name: 'Home', path: '/' },
         { name: 'About', path: '/about' },
-        { name: 'Product', path: '/product' },
+        { name: 'Product', path: '/book-rental-product' },
         { name: 'FAQ', path: '/faq' },
     ];
 

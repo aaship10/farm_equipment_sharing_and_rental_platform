@@ -4,6 +4,7 @@ import Login from './pages/login';
 import BookTanker from './pages/book_rental_products';
 import ConfirmOrder from './pages/ConfirmOrder'; 
 import { AuthProvider } from './pages/AuthProvider';
+import Header from './pages/components/Header';
 
 function App() {
   const mockData = {
@@ -69,11 +70,11 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <Header />
         <Routes>
           <Route path="/" element={<Home {...mockData} />} />
           <Route path="/login" element={<Login />} />
           <Route path="/book-rental-product" element={<BookTanker tankers={mockTankers} />} />
-          {/* Add the Confirm Order Route */}
           <Route path="/confirm-order" element={<ConfirmOrder />} />
         </Routes>
       </AuthProvider>
