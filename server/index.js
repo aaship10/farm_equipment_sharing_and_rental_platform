@@ -6,6 +6,8 @@ import { Server } from 'socket.io';
 import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
@@ -30,6 +32,50 @@ const pool = new Pool({
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// Registration Route
+app.post('/auth/register', async (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+        const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (userCheck.rows.length > 0) {
+            return res.status(400).json({ message: "User already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Using your column names: full_name, password_hash
+        await pool.query(
+            'INSERT INTO users (full_name, email, password_hash) VALUES ($1, $2, $3)',
+            [name, email, hashedPassword]
+        );
+
+        res.status(201).json({ message: "User created" });
+    } catch (err) {
+        res.status(500).json({ message: "Registration failed" });
+    }
+});
+
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (result.rows.length === 0) {
+            return res.status(401).json({ message: "Invalid Credentials" });
+        }
+
+        const user = result.rows[0];
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        
+        if (!isMatch) return res.status(401).json({ message: "Invalid Credentials" });
+
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
+
+        res.json({ token, userId: user.id, message: "Login success" });
+    } catch (err) {
+        res.status(500).json({ message: "Login failed" });
+    }
 });
 
 // --- API ROUTES ---
