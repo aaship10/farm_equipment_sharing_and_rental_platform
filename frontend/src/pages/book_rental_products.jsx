@@ -1,105 +1,138 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; 
-import img1 from '/p1-1.webp';
+import img1 from '/p1-1.webp'; 
 
-const BookTanker = ({ tankers = [] }) => {
+const BookTanker = () => {
+  const navigate = useNavigate();
+  const [tankers, setTankers] = useState([]); 
+  const [loading, setLoading] = useState(true);
 
-  const navigate = useNavigate(); // Initialize hook
+  useEffect(() => {
+    const fetchEquipment = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/equipment');
+        const data = await response.json();
+        setTankers(data);
+      } catch (err) {
+        console.error("Failed to fetch equipment:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEquipment();
+  }, []);
 
   const handleBookNow = (tanker) => {
-    // Navigate to confirm-order and pass the tanker object in state
     navigate('/confirm-order', { state: { tanker } });
   };
 
+  // Helper to format capacity based on type
+  const getCapacityLabel = (type, capacity) => {
+    if (!capacity) return "Standard Model";
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('tractor')) return `${capacity} HP Power`;
+    if (lowerType.includes('tanker')) return `${capacity} Litres`;
+    if (lowerType.includes('drone')) return `${capacity}m Range`;
+    return `${capacity} Units Capacity`;
+  };
+
+  if (loading) return <div className="p-10 text-center font-poppins">Loading Equipment...</div>;
+
   return (
-    <>
-      <main className="container mx-auto my-8 px-4 font-poppins">
-        {/* Page Header */}
-        <div className="text-center py-8">
-          <h1 className="text-4xl font-bold text-primary-blue-dark">
-            Available Water Tankers
-          </h1>
-          <p className="text-text-muted text-lg mt-2">
-            Compare suppliers and book the one that's right for you.
-          </p>
-        </div>
+    <main className="container mx-auto my-8 px-4 font-poppins min-h-screen">
+      <div className="text-center py-8">
+        <h1 className="text-4xl font-bold text-slate-800">
+          Find Farm Equipment
+        </h1>
+        <p className="text-slate-500 text-lg mt-2">
+          Rent tractors, drones, and harvesters from trusted local peers.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {tankers && tankers.length > 0 ? (
-            tankers.map((tanker) => (
-              <div key={tanker.id} className="col-span-1">
-                <div className="bg-white-bg rounded-[15px] border border-border-color shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl flex flex-col h-full overflow-hidden">
-                  <img src={img1} alt="Tanker" className="w-full h-48 object-cover" />
-                  {/* Card Header */}
-                  <div className="bg-light-blue-bg p-4 border-b border-border-color">
-                    <h5 className="text-xl font-semibold text-primary-blue-dark leading-tight">
-                      {tanker.business_name}
-                    </h5>
-                    <div className="flex items-center gap-1 mt-1 text-sm">
-                      <i className="fas fa-star text-yellow-500"></i>
-                      <strong className="text-text-dark">
-                        {parseFloat(tanker.average_rating).toFixed(1)}
-                      </strong>
-                      <span className="text-text-muted">
-                        ({tanker.rating_count} reviews)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Card Body */}
-                  <div className="p-6 flex flex-col grow">
-                    <div className="space-y-3 mb-6">
-                      <div className="flex justify-between items-center text-text-muted">
-                        <span>Description</span>
-                        <strong className="text-text-dark font-medium">
-                          Very well maintained.
-                        </strong>
-                      </div>
-                      <div className="flex justify-between items-center text-text-muted">
-                        <span>Price / 1hr</span>
-                        <strong className="text-text-dark font-medium">
-                          ₹{tanker.price_per_1000_litres.toLocaleString('en-IN')}
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Total Price Box */}
-                    <div className="bg-light-blue-bg rounded-xl p-4 text-center mb-6 mt-auto">
-                      <p className="text-text-muted text-sm mb-1">Total Estimated Price</p>
-                      <h4 className="text-2xl font-bold text-primary-blue-dark">
-                        ₹{((tanker.capacity_litres / 1000) * tanker.price_per_1000_litres).toLocaleString('en-IN')}
-                      </h4>
-                    </div>
-
-                    <div className="mt-auto"> {/* ensuring alignment */}
-                      <button 
-                        onClick={() => handleBookNow(tanker)}
-                        className="w-full bg-gradient-to-r from-primary-blue to-primary-blue-dark text-white font-bold py-3 rounded-lg shadow-md hover:scale-[1.03]"
-                      >
-                        Book Now
-                      </button>
-                    </div>
-                  </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {tankers.length > 0 ? (
+          tankers.map((tanker) => (
+            <div key={tanker.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col">
+              
+              {/* Image Section */}
+              <div className="relative h-48 bg-gray-100">
+                <img 
+                  src={tanker.image_url || img1} 
+                  alt={tanker.machinery_type} 
+                  className="w-full h-full object-cover" 
+                />
+                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
+                  {tanker.is_available ? (
+                    <span className="text-green-600 flex items-center gap-1">● Available Now</span>
+                  ) : (
+                    <span className="text-red-500">● Booked</span>
+                  )}
                 </div>
               </div>
-            ))
-          ) : (
-            /* No Tankers State */
-            <div className="col-span-full">
-              <div className="bg-white-bg rounded-[15px] p-12 text-center border border-border-color flex flex-col items-center justify-center">
-                <div className="bg-light-blue-bg p-6 rounded-full mb-4">
-                  <i className="fas fa-info-circle text-5xl text-primary-blue"></i>
+
+              {/* Card Content */}
+              <div className="p-5 flex flex-col flex-grow">
+                {/* Header */}
+                <div className="mb-4">
+                  <div className="flex justify-between items-start">
+                    <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">
+                      {tanker.machinery_type}
+                    </span>
+                    <div className="flex items-center gap-1 text-sm text-amber-500">
+                      <i className="fas fa-star"></i>
+                      <span className="font-bold text-slate-700">{tanker.average_rating || "New"}</span>
+                      <span className="text-slate-400 text-xs">({tanker.rating_count || 0})</span>
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 mt-2 leading-tight line-clamp-1">
+                    {tanker.business_name}
+                  </h3>
                 </div>
-                <h2 className="text-2xl font-bold text-primary-blue-dark">No Tankers Available</h2>
-                <p className="text-text-muted max-w-md mx-auto mt-2">
-                  Sorry, no tankers are currently available in your area. Please check back later.
-                </p>
+
+                {/* Specs Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="text-center">
+                    <p className="text-xs text-slate-400 uppercase font-semibold">Power/Cap</p>
+                    <p className="font-semibold text-slate-700 text-sm">
+                      {getCapacityLabel(tanker.machinery_type, tanker.capacity_litres)}
+                    </p>
+                  </div>
+                  <div className="text-center border-l border-slate-200">
+                    <p className="text-xs text-slate-400 uppercase font-semibold">Condition</p>
+                    <p className="font-semibold text-green-600 text-sm">Excellent</p>
+                  </div>
+                </div>
+
+                {/* Price & Action */}
+                <div className="mt-auto flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-slate-400">Rental Rate</p>
+                    <p className="text-2xl font-bold text-slate-800">
+                      ₹{tanker.price_rate || tanker.price_per_1000_litres}
+                      <span className="text-sm font-medium text-slate-400">/hr</span>
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => handleBookNow(tanker)}
+                    className="flex-1 bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-slate-200 hover:bg-purple-700 transition-colors"
+                  >
+                    Rent Now
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </main>
-    </>
+          ))
+        ) : (
+          <div className="col-span-full py-20 text-center">
+            <div className="inline-block p-4 rounded-full bg-slate-100 mb-4">
+              <span className="text-4xl">🚜</span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-600">No Equipment Found</h3>
+            <p className="text-slate-400">Be the first to list your machinery!</p>
+          </div>
+        )}
+      </div>
+    </main>
   );
 };
 

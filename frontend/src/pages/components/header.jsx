@@ -1,10 +1,10 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import  { useAuth } from '../useAuth';
+import { useAuth } from '../useAuth'; 
 
 function Header() {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user: loggedIn, logout } = useAuth();
+    const { user: loggedIn, logout } = useAuth(); 
 
     const isActive = (path) => location.pathname === path;
 
@@ -17,8 +17,6 @@ function Header() {
 
     const authLinks = loggedIn ? [
         { name: 'Cart', path: '/cart' },
-        // { name: 'Profile', path: '/profile' },
-        // { name: 'Orders', path: '/orders' },
     ] : [
         { name: 'Login / Register', path: '/login' }, 
     ];
@@ -29,8 +27,7 @@ function Header() {
     };
 
     return (
-        // Added 'backdrop-blur-md' for a frosted glass effect
-        <header className="flex flex-row justify-between items-center bg-purple-200/80 backdrop-blur-sm p-4 sticky top-0 z-10 w-full shadow-sm">
+        <header className="flex flex-row justify-between items-center bg-purple-200/80 backdrop-blur-sm p-4 sticky top-0 z-50 w-full shadow-sm">
             
             {/* Main Navigation Links */}
             <div className="flex flex-row justify-center items-center">
@@ -49,8 +46,28 @@ function Header() {
                 ))}
             </div>
 
-            {/* Auth Links & Logout Button */}
-            <div className="flex flex-row justify-center items-center">
+            {/* Role Switch & Auth Links */}
+            <div className="flex flex-row justify-center items-center gap-4">
+                
+                {/* Driver Mode Button */}
+                <Link 
+                    to="/driver-portal" 
+                    className="flex items-center gap-2 bg-purple-900 text-white px-4 py-2 rounded-full text-sm font-bold shadow-md hover:bg-purple-800 transition-all active:scale-95"
+                >
+                    <span className="text-lg">🚜</span>
+                    <span>Driver Mode</span>
+                </Link>
+
+                {/* NEW: List Item Button (Only visible when logged in) */}
+                {loggedIn && (
+                    <Link 
+                        to="/register-product" 
+                        className="mx-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-sm active:scale-95"
+                    >
+                        + List Item
+                    </Link>
+                )}
+
                 {authLinks.map(link => (
                     <Link
                         key={link.path}

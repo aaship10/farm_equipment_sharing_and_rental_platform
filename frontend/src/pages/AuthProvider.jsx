@@ -2,16 +2,25 @@ import React, { useState } from 'react';
 import { AuthContext } from './AuthContext';
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(!!localStorage.getItem('token'));
+  // Initialize state by checking localStorage for BOTH token and ID
+  const [user, setUser] = useState(() => {
+    const token = localStorage.getItem('token');
+    const id = localStorage.getItem('userId');
+    // If token exists, return the user object (with id), otherwise null
+    return token ? { token, id } : null;
+  });
 
-  const login = (token) => {
+  // Updated login function to accept and store userId
+  const login = (token, userId) => {
     localStorage.setItem('token', token);
-    setUser(true);
+    localStorage.setItem('userId', userId);
+    setUser({ token, id: userId });
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    setUser(false);
+    localStorage.removeItem('userId');
+    setUser(null);
   };
 
   return (

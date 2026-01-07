@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-// Updated import path based on your folder structure
 import { useAuth } from './useAuth'; 
 
 const ConfirmOrder = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user } = useAuth(); // Get user from context
     const [address, setAddress] = useState('');
     
-    // Retrieve the tanker object passed via navigation state
+    // Retrieve the equipment object passed via navigation state
     const tanker = location.state?.tanker;
 
-    // Redirect if accessed directly without a tanker selection
+    // Redirect if accessed directly without a selection
     useEffect(() => { 
         if (!tanker) {
             alert("No machinery selected. Redirecting to marketplace.");
@@ -22,8 +21,25 @@ const ConfirmOrder = () => {
 
     if (!tanker) return null;
 
+    // LOGIC UPDATE: Handle both new 'price_rate' and old 'tanker' math
+    const calculateTotal = () => {
+        if (tanker.price_rate) {
+            return parseFloat(tanker.price_rate); // Flat hourly rate
+        }
+        // Fallback for old data
+        return (tanker.capacity_litres / 1000) * tanker.price_per_1000_litres;
+    };
+
+    const finalPrice = calculateTotal();
+
     const handlePayment = async (e) => {
         e.preventDefault();
+
+        // 🛑 SAFETY CHECK: Ensure User ID exists before paying
+        if (!user || !user.id) {
+            alert("User session invalid. Please Log Out and Login again.");
+            return;
+        }
         
         try {
             // 1. Create Razorpay Order on the server
@@ -31,7 +47,7 @@ const ConfirmOrder = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    totalPrice: (tanker.capacity_litres / 1000) * tanker.price_per_1000_litres 
+                    totalPrice: finalPrice
                 })
             });
             
@@ -47,27 +63,33 @@ const ConfirmOrder = () => {
                 description: `Booking for ${tanker.business_name}`,
                 order_id: order.id,
                 handler: async (response) => {
-                    // 3. Verify Payment & Save to Neon DB
-                    const verifyRes = await fetch('http://localhost:3000/api/payment-verification', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            ...response,
-                            tankerId: tanker.id,
-                            deliveryAddress: address,
-                            totalPrice: order.amount / 100,
-                            userId: user.id // Passed to your backend for the orders table
-                        })
-                    });
+                    try {
+                        // 3. Verify Payment & Save to Neon DB
+                        const verifyRes = await fetch('http://localhost:3000/api/payment-verification', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ...response,
+                                tankerId: tanker.id,
+                                deliveryAddress: address,
+                                totalPrice: finalPrice, // Send calculated price
+                                userId: user.id // CRITICAL: This MUST be present
+                            })
+                        });
 
-                    const result = await verifyRes.json();
-                    
-                    // Navigate to the dynamic tracking route registered in App.jsx
-                    if (result.success) {
-                        alert("Payment Successful! Redirecting to Live Tracking...");
-                        navigate(`/track-order/${result.orderId}`);
-                    } else {
-                        alert("Payment verification failed. Please contact support.");
+                        const result = await verifyRes.json();
+                        
+                        // Navigate to the dynamic tracking route registered in App.jsx
+                        if (result.success) {
+                            alert("Payment Successful! Redirecting to Live Tracking...");
+                            navigate(`/track-order/${result.orderId}`);
+                        } else {
+                            console.error("Backend Error:", result);
+                            alert(`Payment verification failed: ${result.message || "Unknown Error"}`);
+                        }
+                    } catch (verifyErr) {
+                        console.error("Verification Network Error:", verifyErr);
+                        alert("Verification failed due to network error.");
                     }
                 },
                 theme: { color: "#2563eb" } // Blue-600 to match your button
@@ -90,9 +112,9 @@ const ConfirmOrder = () => {
                 
                 <div className="bg-blue-50 p-4 rounded-xl mb-8">
                     <div className="flex justify-between text-sm text-blue-800 mb-1">
-                        <span>Total Price:</span>
+                        <span>Total Price (Base Rate):</span>
                         <span className="font-bold">
-                            ₹{((tanker.capacity_litres / 1000) * tanker.price_per_1000_litres).toLocaleString('en-IN')}
+                            ₹{finalPrice.toLocaleString('en-IN')}
                         </span>
                     </div>
                 </div>

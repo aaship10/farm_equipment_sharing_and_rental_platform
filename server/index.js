@@ -164,4 +164,80 @@ app.post('/api/update-location', async (req, res) => {
     res.sendStatus(200);
 });
 
+// ... existing imports and setup
+
+// --- DRIVER / OWNER PORTAL API ---
+
+// 1. Get Orders SPECIFIC to the logged-in Owner (Driver)
+app.get('/api/driver/orders/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        // SQL Logic: Join orders with equipment, then filter where equipment.owner_id matches the requested User ID
+        const result = await pool.query(
+            `SELECT 
+                o.id, 
+                o.total_price, 
+                o.delivery_address, 
+                o.order_status, 
+                e.machinery_type, 
+                e.business_name,
+                u.full_name as customer_name,
+                u.phone_number as customer_phone
+             FROM orders o
+             JOIN equipment e ON o.equipment_id = e.id
+             JOIN users u ON o.user_id = u.id
+             WHERE e.owner_id = $1 
+             AND o.order_status IN ('Paid', 'En-Route')
+             ORDER BY o.created_at DESC`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to fetch driver orders" });
+    }
+});
+
+// 2. Update Order Status (e.g., Start Delivery / Finish Delivery)
+app.post('/api/driver/update-status', async (req, res) => {
+    const { orderId, status } = req.body; // status can be 'En-Route' or 'Delivered'
+    try {
+        await pool.query(
+            'UPDATE orders SET order_status = $1 WHERE id = $2',
+            [status, orderId]
+        );
+        res.json({ success: true, message: `Order updated to ${status}` });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to update status" });
+    }
+});
+
+// ... existing socket.io logic (keep this as is) ...
+
+// ... existing imports
+
+// --- ADD PRODUCT API ---
+app.post('/api/add-equipment', async (req, res) => {
+    const { userId, businessName, machineryType, priceRate, capacity } = req.body;
+
+    if (!userId || !businessName || !machineryType || !priceRate) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+        await pool.query(
+            `INSERT INTO equipment 
+            (owner_id, business_name, machinery_type, price_rate, capacity_litres, is_available, image_url) 
+            VALUES ($1, $2, $3, $4, $5, true, '/p1-1.webp')`,
+            [userId, businessName, machineryType, priceRate, capacity || 0]
+        );
+        res.status(201).json({ message: "Equipment listed successfully!" });
+    } catch (err) {
+        console.error("Error adding equipment:", err);
+        res.status(500).json({ error: "Database error while adding product." });
+    }
+});
+
+// ... rest of your code
+
 server.listen(3000, () => console.log('Backend running on port 3000'));
