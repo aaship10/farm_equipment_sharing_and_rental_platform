@@ -6,6 +6,9 @@ import ConfirmOrder from './pages/ConfirmOrder';
 import { AuthProvider } from './pages/AuthProvider';
 import Header from './pages/components/Header';
 import TrackOrder from './pages/TrackOrder'; // Ensure this import is present
+import About from "./pages/About";
+import FAQ from "./pages/FAQ";
+
 
 function App() {
   const mockData = {
@@ -79,6 +82,9 @@ function App() {
           <Route path="/confirm-order" element={<ConfirmOrder />} />
           {/* REGISTER THE TRACKING ROUTE HERE */}
           <Route path="/track-order/:orderId" element={<TrackOrder />} />
+          <Route path="/about" element={<About />} />
+<Route path="/faq" element={<FAQ />} />
+
         </Routes>
       </AuthProvider>
     </Router>
