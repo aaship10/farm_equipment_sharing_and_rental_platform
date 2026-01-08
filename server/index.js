@@ -34,6 +34,10 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// ==========================================
+// 🔐 AUTHENTICATION
+// ==========================================
+
 // Registration Route
 app.post('/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
@@ -45,7 +49,6 @@ app.post('/auth/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Using your column names: full_name, password_hash
         await pool.query(
             'INSERT INTO users (full_name, email, password_hash) VALUES ($1, $2, $3)',
             [name, email, hashedPassword]
@@ -78,9 +81,11 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-// --- API ROUTES ---
+// ==========================================
+// 🚜 EQUIPMENT ROUTES
+// ==========================================
 
-// Fetch available equipment from the database
+// 1. Fetch ALL available equipment (Public)
 app.get('/api/equipment', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM equipment WHERE is_available = true');
@@ -89,6 +94,48 @@ app.get('/api/equipment', async (req, res) => {
         res.status(500).json({ error: "Failed to fetch equipment" });
     }
 });
+
+// 2. Fetch USER SPECIFIC equipment (For "My Listings" Page) - [YOUR FEATURE]
+app.get('/api/equipment/user/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const result = await pool.query(
+            'SELECT * FROM equipment WHERE owner_id = $1', 
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error fetching user items:", err);
+        res.status(500).json({ error: "Failed to fetch user items" });
+    }
+});
+
+// 3. Add Equipment (For Owners)
+app.post('/api/add-equipment', async (req, res) => {
+    const { userId, businessName, machineryType, priceRate, capacity } = req.body;
+
+    if (!userId || !businessName || !machineryType || !priceRate) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+        const image_url = `/${machineryType}.jpeg`; 
+        await pool.query(
+            `INSERT INTO equipment 
+            (owner_id, business_name, machinery_type, price_rate, capacity_litres, is_available, image_url) 
+            VALUES ($1, $2, $3, $4, $5, true, $6)`,
+            [userId, businessName, machineryType, priceRate, capacity || 0, image_url]
+        );
+        res.status(201).json({ message: "Equipment listed successfully!" });
+    } catch (err) {
+        console.error("Error adding equipment:", err);
+        res.status(500).json({ error: "Database error while adding product." });
+    }
+});
+
+// ==========================================
+// 💳 PAYMENTS & ORDERS
+// ==========================================
 
 // Create Razorpay Order
 app.post('/api/create-order-razorpay', async (req, res) => {
@@ -106,7 +153,7 @@ app.post('/api/create-order-razorpay', async (req, res) => {
     }
 });
 
-// Verify Payment and Create Order in Database
+// Verify Payment and Create Order
 app.post('/api/payment-verification', async (req, res) => {
     const { 
         razorpay_order_id, 
@@ -127,15 +174,12 @@ app.post('/api/payment-verification', async (req, res) => {
 
     if (expectedSignature === razorpay_signature) {
         try {
-            // Save order to the 'orders' table (now including rental_hours)
-            // Note: Ensure your database has a 'rental_hours' column in the orders table.
             const result = await pool.query(
                 `INSERT INTO orders (user_id, equipment_id, delivery_address, total_price, rental_hours, order_status, payment_id) 
                  VALUES ($1, $2, $3, $4, $5, 'En-Route', $6) RETURNING id`,
                 [userId, tankerId, deliveryAddress, totalPrice, rentalHours || 1, razorpay_payment_id]
             );
             
-            // Return the new orderId for the frontend to navigate to TrackOrder
             res.json({ success: true, orderId: result.rows[0].id });
         } catch (dbErr) {
             console.error("Database Error:", dbErr);
@@ -146,32 +190,127 @@ app.post('/api/payment-verification', async (req, res) => {
     }
 });
 
-// --- LIVE GPS TRACKING ---
-
-// Socket.io room management for specific orders
-io.on('connection', (socket) => {
-    socket.on('join-tracking', (orderId) => {
-        socket.join(`order_${orderId}`);
-        console.log(`User joined tracking for order: ${orderId}`);
-    });
+// Get Order by ID
+app.get('/api/orders/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).send('Order not found');
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
 });
 
-// Endpoint to broadcast driver location updates
-app.post('/api/update-location', async (req, res) => {
-    const { orderId, latitude, longitude } = req.body;
-    
-    // Broadcast location to the specific room matching the orderId
-    io.to(`order_${orderId}`).emit('location-update', { latitude, longitude });
-    res.sendStatus(200);
+// ==========================================
+// 👤 USER FEATURES (YOURS)
+// ==========================================
+
+// 1. My Bookings (For Renters)
+app.get('/api/my-bookings/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT 
+                o.id, 
+                o.created_at, 
+                o.total_price, 
+                o.order_status,
+                e.id as equipment_id,      
+                e.business_name, 
+                e.machinery_type, 
+                e.image_url,
+                e.is_available,            
+                e.price_rate as current_price, 
+                e.capacity_litres,
+                u.full_name as owner_name,
+                u.phone_number as owner_phone
+             FROM orders o
+             JOIN equipment e ON o.equipment_id = e.id
+             JOIN users u ON e.owner_id = u.id 
+             WHERE o.user_id = $1
+             ORDER BY o.created_at DESC`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error fetching bookings:", err);
+        res.status(500).json({ error: "Failed to fetch bookings" });
+    }
 });
 
-// --- DRIVER / OWNER PORTAL API ---
+// 2. Rental History (For Owners)
+app.get('/api/rentals/:equipmentId', async (req, res) => {
+    const { equipmentId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT 
+                o.id, 
+                o.created_at, 
+                o.total_price, 
+                o.order_status,
+                u.full_name as renter_name, 
+                u.email as renter_contact
+             FROM orders o
+             JOIN users u ON o.user_id = u.id
+             WHERE o.equipment_id = $1
+             ORDER BY o.created_at DESC`,
+            [equipmentId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error fetching rentals:", err);
+        res.status(500).json({ error: "Failed to fetch rentals" });
+    }
+});
 
-// 1. Get Orders SPECIFIC to the logged-in Owner (Driver)
+// ==========================================
+// 🛠️ SERVICE HISTORY (YOURS)
+// ==========================================
+
+// 1. Add Service Record
+app.post('/api/service-history', async (req, res) => {
+    const { equipmentId, serviceDate, serviceType, description, mechanicName, cost } = req.body;
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO service_logs 
+            (equipment_id, service_date, service_type, description, mechanic_name, cost) 
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [equipmentId, serviceDate, serviceType, description, mechanicName, cost || 0]
+        );
+        res.status(201).json({ message: "Service record added!", log: result.rows[0] });
+    } catch (err) {
+        console.error("Error adding service log:", err);
+        res.status(500).json({ error: "Failed to add service record" });
+    }
+});
+
+// 2. Get Service History
+app.get('/api/service-history/:equipmentId', async (req, res) => {
+    const { equipmentId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT * FROM service_logs 
+             WHERE equipment_id = $1 
+             ORDER BY service_date DESC`, 
+            [equipmentId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error fetching service history:", err);
+        res.status(500).json({ error: "Failed to fetch history" });
+    }
+});
+
+// ==========================================
+// 🚚 DRIVER PORTAL (TEAMMATES)
+// ==========================================
+
+// 1. Get Driver Orders
 app.get('/api/driver/orders/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
-        // SQL Logic: Join orders with equipment, then filter where equipment.owner_id matches the requested User ID
         const result = await pool.query(
             `SELECT 
                 o.id, 
@@ -197,9 +336,9 @@ app.get('/api/driver/orders/:userId', async (req, res) => {
     }
 });
 
-// 2. Update Order Status (e.g., Start Delivery / Finish Delivery)
+// 2. Update Order Status
 app.post('/api/driver/update-status', async (req, res) => {
-    const { orderId, status } = req.body; // status can be 'En-Route' or 'Delivered'
+    const { orderId, status } = req.body; 
     try {
         await pool.query(
             'UPDATE orders SET order_status = $1 WHERE id = $2',
@@ -211,62 +350,31 @@ app.post('/api/driver/update-status', async (req, res) => {
     }
 });
 
-// --- ADD PRODUCT API ---
-app.post('/api/add-equipment', async (req, res) => {
-    const { userId, businessName, machineryType, priceRate, capacity } = req.body;
+// ==========================================
+// ⭐ REVIEWS & ADMIN (TEAMMATES)
+// ==========================================
 
-    if (!userId || !businessName || !machineryType || !priceRate) {
-        return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    try {
-        const image_url = `/${machineryType}.jpeg`; 
-        await pool.query(
-            `INSERT INTO equipment 
-            (owner_id, business_name, machinery_type, price_rate, capacity_litres, is_available, image_url) 
-            VALUES ($1, $2, $3, $4, $5, true, $6)`,
-            [userId, businessName, machineryType, priceRate, capacity || 0, image_url]
-        );
-        res.status(201).json({ message: "Equipment listed successfully!" });
-    } catch (err) {
-        console.error("Error adding equipment:", err);
-        res.status(500).json({ error: "Database error while adding product." });
-    }
-});
-
-app.get('/api/orders/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
-        if (result.rows.length === 0) return res.status(404).send('Order not found');
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).send('Server Error');
-    }
-});
-
+// Submit Review
 app.post('/api/submit-review', async (req, res) => {
     const { orderId, equipmentId, rating, comment } = req.body;
     
     try {
-        // 1. Save the individual review
+        // 1. Save review
         await pool.query(
             'INSERT INTO reviews (order_id, equipment_id, rating, comment) VALUES ($1, $2, $3, $4)',
             [orderId, equipmentId, rating, comment]
         );
 
-        // 2. Get current stats of the equipment
+        // 2. Update stats
         const eqResult = await pool.query('SELECT average_rating, rating_count FROM equipment WHERE id = $1', [equipmentId]);
         const { average_rating, rating_count } = eqResult.rows[0];
 
-        // 3. Do the Math (Weighted Average)
         const currentAvg = parseFloat(average_rating) || 0;
         const currentCount = parseInt(rating_count) || 0;
         
         const newCount = currentCount + 1;
         const newAvg = ((currentAvg * currentCount) + parseInt(rating)) / newCount;
 
-        // 4. Update the Equipment Table
         await pool.query(
             'UPDATE equipment SET average_rating = $1, rating_count = $2 WHERE id = $3',
             [newAvg, newCount, equipmentId]
@@ -279,20 +387,20 @@ app.post('/api/submit-review', async (req, res) => {
     }
 });
 
-// GET: Admin Dashboard Analytics
+// Admin Dashboard Analytics
 app.get('/api/admin/stats', async (req, res) => {
     try {
-        // 1. Total Revenue (Using 'total_price' from orders table)
+        // 1. Revenue
         const revenueQuery = await pool.query(
             "SELECT COALESCE(SUM(total_price), 0) as sum FROM orders WHERE order_status = 'Paid' OR order_status = 'Delivered' OR order_status = 'En-Route'"
         );
         const totalRevenue = revenueQuery.rows[0].sum;
 
-        // 2. Total Orders Count
+        // 2. Orders Count
         const ordersQuery = await pool.query("SELECT COUNT(*) FROM orders");
         const totalOrders = ordersQuery.rows[0].count;
 
-        // 3. Equipment Popularity (Using 'machinery_type' from equipment table)
+        // 3. Popularity
         const popularityQuery = await pool.query(`
             SELECT e.machinery_type as name, COUNT(o.id) as value 
             FROM orders o 
@@ -301,8 +409,6 @@ app.get('/api/admin/stats', async (req, res) => {
         `);
 
         // 4. Recent Transactions
-        // ✅ FIX: Used 'u.full_name' based on your users table schema
-        // ✅ FIX: Used 'total_price' and aliased as 'total_amount' for frontend compatibility
         const recentQuery = await pool.query(`
             SELECT o.id, e.machinery_type as name, o.total_price as total_amount, o.order_status, u.full_name as user_name
             FROM orders o
@@ -322,6 +428,23 @@ app.get('/api/admin/stats', async (req, res) => {
         console.error("ADMIN STATS SQL ERROR:", err.message);
         res.status(500).json({ error: err.message });
     }
+});
+
+// ==========================================
+// 📍 LIVE GPS TRACKING
+// ==========================================
+
+io.on('connection', (socket) => {
+    socket.on('join-tracking', (orderId) => {
+        socket.join(`order_${orderId}`);
+        console.log(`User joined tracking for order: ${orderId}`);
+    });
+});
+
+app.post('/api/update-location', async (req, res) => {
+    const { orderId, latitude, longitude } = req.body;
+    io.to(`order_${orderId}`).emit('location-update', { latitude, longitude });
+    res.sendStatus(200);
 });
 
 server.listen(3000, () => console.log('Backend running on port 3000'));
