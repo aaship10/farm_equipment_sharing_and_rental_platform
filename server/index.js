@@ -34,9 +34,7 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// ==========================================
-// 🔐 AUTHENTICATION
-// ==========================================
+// AUTHENTICATION
 
 // Registration Route
 app.post('/auth/register', async (req, res) => {
@@ -60,6 +58,7 @@ app.post('/auth/register', async (req, res) => {
     }
 });
 
+//Login Route
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -75,17 +74,15 @@ app.post('/auth/login', async (req, res) => {
 
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
 
-        res.json({ token, userId: user.id, message: "Login success" });
+        res.json({ token, userId: user.id, name: user.full_name, email: user.email, message: "Login success" });
     } catch (err) {
         res.status(500).json({ message: "Login failed" });
     }
 });
 
-// ==========================================
-// 🚜 EQUIPMENT ROUTES
-// ==========================================
+// EQUIPMENT ROUTES
 
-// 1. Fetch ALL available equipment (Public)
+// 1. Fetch ALL available equipment 
 app.get('/api/equipment', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM equipment WHERE is_available = true');
@@ -95,7 +92,7 @@ app.get('/api/equipment', async (req, res) => {
     }
 });
 
-// 2. Fetch USER SPECIFIC equipment (For "My Listings" Page) - [YOUR FEATURE]
+// 2. Fetch USER SPECIFIC equipment
 app.get('/api/equipment/user/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
@@ -110,7 +107,20 @@ app.get('/api/equipment/user/:userId', async (req, res) => {
     }
 });
 
-// 3. Add Equipment (For Owners)
+// Simple endpoint to fetch a user's basic profile 
+app.get('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query('SELECT id, full_name, email FROM users WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch user' });
+    }
+});
+
+// 3. Add Equipment
 app.post('/api/add-equipment', async (req, res) => {
     const { userId, businessName, machineryType, priceRate, capacity } = req.body;
 
@@ -133,9 +143,7 @@ app.post('/api/add-equipment', async (req, res) => {
     }
 });
 
-// ==========================================
-// 💳 PAYMENTS & ORDERS
-// ==========================================
+// PAYMENTS & ORDERS
 
 // Create Razorpay Order
 app.post('/api/create-order-razorpay', async (req, res) => {
@@ -202,9 +210,7 @@ app.get('/api/orders/:id', async (req, res) => {
     }
 });
 
-// ==========================================
-// 👤 USER FEATURES (YOURS)
-// ==========================================
+// USER FEATURES
 
 // 1. My Bookings (For Renters)
 app.get('/api/my-bookings/:userId', async (req, res) => {
@@ -264,9 +270,7 @@ app.get('/api/rentals/:equipmentId', async (req, res) => {
     }
 });
 
-// ==========================================
-// 🛠️ SERVICE HISTORY (YOURS)
-// ==========================================
+// SERVICE HISTORY
 
 // 1. Add Service Record
 app.post('/api/service-history', async (req, res) => {
@@ -303,9 +307,7 @@ app.get('/api/service-history/:equipmentId', async (req, res) => {
     }
 });
 
-// ==========================================
-// 🚚 DRIVER PORTAL (TEAMMATES)
-// ==========================================
+// DRIVER PORTAL (TEAMMATES)
 
 // 1. Get Driver Orders
 app.get('/api/driver/orders/:userId', async (req, res) => {
@@ -350,9 +352,7 @@ app.post('/api/driver/update-status', async (req, res) => {
     }
 });
 
-// ==========================================
-// ⭐ REVIEWS & ADMIN (TEAMMATES)
-// ==========================================
+// REVIEWS & ADMIN
 
 // Submit Review
 app.post('/api/submit-review', async (req, res) => {
@@ -430,9 +430,7 @@ app.get('/api/admin/stats', async (req, res) => {
     }
 });
 
-// ==========================================
-// 📍 LIVE GPS TRACKING
-// ==========================================
+// LIVE GPS TRACKING
 
 io.on('connection', (socket) => {
     socket.on('join-tracking', (orderId) => {

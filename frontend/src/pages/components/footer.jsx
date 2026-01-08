@@ -10,18 +10,18 @@ function Footer() {
         {/* Brand / Contact */}
         <div>
           <div className="flex items-center gap-3 mb-3">
-            <div className="bg-amber-500 text-white rounded-full p-2 shadow-md">
+            {/* <div className="bg-amber-500 text-white rounded-full p-2 shadow-md">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M3 12c0-4.418 4.03-8 9-8 0 0-2 2-2 4 0 2 2 4 2 4s1-1 3-1c0 0-3 6-10 6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </div>
+            </div> */}
             <div>
               <h3 className="font-bold text-green-800">Sahayak</h3>
               <p className="text-sm text-slate-600">Share equipment. Grow together.</p>
             </div>
           </div>
 
-          <p className="text-sm text-slate-500">Need help? <a href="mailto:support@agrishare.local" className="text-green-700 font-semibold">support@agrishare.local</a></p>
+          <p className="text-sm text-slate-500">Need help? <a href="mailto:support@agrishare.local" className="text-green-700 font-semibold">support@sahayak.local</a></p>
         </div>
 
         {/* Quick Links */}

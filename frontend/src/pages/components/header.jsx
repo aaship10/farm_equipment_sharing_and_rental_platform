@@ -65,13 +65,6 @@ function Header() {
             <div className="flex items-center gap-3">
                 
                 {/* Driver Mode Button */}
-                <Link 
-                    to="/driver-portal" 
-                    className="hidden sm:flex items-center gap-2 bg-green-800 text-white px-4 py-2 rounded-full text-sm font-bold shadow-md hover:bg-green-900 transition-all active:scale-95"
-                >
-                    <span>🚜</span>
-                    <span>Driver Mode</span>
-                </Link>
 
                 {!loggedIn ? (
                     <Link 
@@ -98,11 +91,17 @@ function Header() {
                             <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                                 <div className="px-4 py-3 border-b border-gray-100 bg-green-50/50">
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Signed In</p>
-                                    <p className="text-sm font-bold text-green-900 truncate">User ID: {loggedIn.id}</p>
+                                    <p className="text-sm font-bold text-green-900 truncate">User name: {loggedIn?.name || loggedIn?.full_name || 'User'}</p>
                                 </div>
 
                                 <div className="py-1">
                                     {/* --- RENTER LINK --- */}
+                                     <Link 
+                                        to="/driver-portal" 
+                                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 font-medium"
+                                    >
+                                        🚜 Driver Mode
+                                    </Link>
                                     <Link 
                                         to="/cart" 
                                         onClick={() => setDropdownOpen(false)}

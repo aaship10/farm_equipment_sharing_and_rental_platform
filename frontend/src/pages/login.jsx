@@ -55,8 +55,8 @@ function Login() {
       if (response.ok) {
         if (isLogin) {
           // ACTION: User tapped "Login" button
-          // 1. Save token and userId to Auth Context
-          login(data.token, data.userId); 
+          // 1. Save token, userId and name to Auth Context
+          login(data.token, data.userId, data.name); 
           // 2. Redirect to home page
           navigate('/'); 
         } else {
@@ -77,94 +77,112 @@ function Login() {
   };
 
   return (
-    <div className='flex flex-col min-h-screen'>
-      <main className='flex-grow flex flex-col justify-center items-center'>
-        
-        <div className='bg-fuchsia-200 flex flex-row rounded-xl overflow-hidden shadow-2xl max-w-5xl w-full m-10'>
-          
-          {/* Left Side: Info & Toggle */}
-          <div className='p-10 w-1/2 flex justify-center items-center flex-col gap-6 text-center'>
-            <p className='text-6xl font-extrabold text-white drop-shadow-md'>
-              {isLogin ? 'Welcome Back!' : 'Join Us Today!'}
-            </p>
-            <span className='text-purple-900 text-lg font-medium'>
-              {isLogin 
-                ? 'Login to continue your booking journey.' 
-                : 'Start your journey with us by creating an account.'}
-            </span>
-            <span className='text-indigo-600 font-semibold'>
-              {isLogin ? "Don't have an account?" : "Already have an account?"} 
-              <button 
-                onClick={() => setIsLogin(!isLogin)} 
-                className='ml-2 underline hover:text-indigo-800 transition-colors cursor-pointer'
-              >
-                {isLogin ? 'Register here' : 'Login here'}
-              </button>
-            </span>
+    <div className='flex flex-col min-h-screen bg-amber-50'>
+      <main className='flex-grow flex items-center justify-center'>
+
+        <div className='rounded-xl overflow-hidden shadow-2xl max-w-5xl w-full m-10 bg-white flex'>
+
+          {/* Left Side: Tractor image with overlay (hidden on small screens) */}
+          <div
+            className='w-1/2 relative hidden md:block'
+            style={{ backgroundImage: "url('/Tractor.jpeg')", backgroundSize: 'cover', backgroundPosition: 'center' }}
+          >
+            <div className='absolute inset-0 bg-gradient-to-r from-emerald-900/80 to-emerald-600/30 flex items-center justify-center p-10'>
+              <div className='text-center text-white'>
+                <h2 className='text-4xl font-extrabold mb-2'>Equip for the Field</h2>
+                <p className='text-lg'>Rent and share farm equipment with your local community.</p>
+              </div>
+            </div>
           </div>
 
           {/* Right Side: Form */}
-          <div className='bg-indigo-300 w-1/2 flex flex-col justify-center items-center gap-6 p-10'>
-            <h1 className='text-4xl font-extrabold text-white'>
-              {isLogin ? 'Login to Account' : 'Create Account'}
-            </h1>
-            
-            <form onSubmit={handleSubmit} className='flex flex-col gap-4 w-full px-8'>
-              
+          <div className='w-full md:w-1/2 p-10 flex flex-col justify-center gap-6'>
+            <div className='flex items-center gap-3'>
+              <div className='bg-emerald-700 text-white rounded-full p-2 shadow-md'>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15c-3 0-5-2-7-4s-4-4-7-4" />
+                  <path d="M3 21s4-2 8-2 8 2 8 2" />
+                </svg>
+              </div>
+
+              <h1 className='text-3xl font-extrabold text-emerald-900'>
+                {isLogin ? 'Welcome Back!' : 'Join the Farm Community'}
+              </h1>
+            </div>
+
+            <p className='text-slate-600'>
+              {isLogin ? 'Sign in to manage your bookings and listings.' : 'Create an account to list or rent farm equipment.'}
+            </p>
+
+            <form onSubmit={handleSubmit} className='flex flex-col gap-4 w-full'>
+
               {!isLogin && (
-                <input 
+                <input
                   name='name'
                   value={formData.name}
                   onChange={handleChange}
-                  type='text' 
+                  type='text'
                   placeholder='Full Name'
-                  className='p-3 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all'
+                  className='p-3 border border-emerald-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all'
                   required
                 />
               )}
 
-              <input 
+              <input
                 name='email'
                 value={formData.email}
                 onChange={handleChange}
-                type='email' 
+                type='email'
                 placeholder='Email'
-                className='p-3 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all'
+                className='p-3 border border-emerald-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all'
                 required
               />
-              
+
               <input
                 name='password'
                 value={formData.password}
                 onChange={handleChange}
                 type='password'
                 placeholder='Password'
-                className='p-3 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all'
+                className='p-3 border border-emerald-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all'
                 required
               />
 
               {!isLogin && (
-                 <input
-                   name='confirmPassword'
-                   value={formData.confirmPassword}
-                   onChange={handleChange}
-                   type='password'
-                   placeholder='Confirm Password'
-                   className='p-3 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all'
-                   required
-                 />
+                <input
+                  name='confirmPassword'
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  type='password'
+                  placeholder='Confirm Password'
+                  className='p-3 border border-emerald-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all'
+                  required
+                />
               )}
 
-              <button
-                type='submit'
-                className='mt-4 p-3 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 transition-colors shadow-md'
-              >
-                {isLogin ? 'Login' : 'Sign Up'}
-              </button>
+              <div className='flex items-center justify-between mt-2'>
+                <button
+                  type='submit'
+                  className='p-3 bg-emerald-700 text-white font-bold rounded-md hover:bg-emerald-800 transition-colors shadow-md'
+                >
+                  {isLogin ? 'Login' : 'Sign Up'}
+                </button>
+
+                <button
+                  type='button'
+                  onClick={() => setIsLogin(!isLogin)}
+                  className='text-sm text-emerald-700 underline hover:text-emerald-900'
+                >
+                  {isLogin ? "Don't have an account? Register" : 'Already have an account? Login'}
+                </button>
+              </div>
+
             </form>
+
           </div>
 
         </div>
+
       </main>
       <Footer />
     </div>
