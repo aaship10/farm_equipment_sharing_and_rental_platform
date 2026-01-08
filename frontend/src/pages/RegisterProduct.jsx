@@ -42,7 +42,7 @@ const RegisterProduct = () => {
 
       if (response.ok) {
         alert("Success! Your equipment is now live in the marketplace.");
-        navigate('/driver-portal'); // Redirect to their dashboard to see the listing
+        navigate('/book-rental-product'); // Redirect to their dashboard to see the listing
       } else {
         alert(data.error || "Failed to list product.");
       }

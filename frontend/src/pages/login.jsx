@@ -58,7 +58,7 @@ function Login() {
           // 1. Save token and userId to Auth Context
           login(data.token, data.userId); 
           // 2. Redirect to home page
-          navigate('/home'); 
+          navigate('/'); 
         } else {
           // ACTION: User tapped "Sign Up" button
           // alert('Registration Successful! Please login.');

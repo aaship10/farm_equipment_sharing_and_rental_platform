@@ -115,7 +115,8 @@ app.post('/api/payment-verification', async (req, res) => {
         tankerId, 
         deliveryAddress, 
         totalPrice, 
-        userId 
+        userId,
+        rentalHours
     } = req.body;
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -126,12 +127,12 @@ app.post('/api/payment-verification', async (req, res) => {
 
     if (expectedSignature === razorpay_signature) {
         try {
-            // Save order to the 'orders' table
-            // Note: Ensure your database uses 'equipment_id' for foreign key constraints.
+            // Save order to the 'orders' table (now including rental_hours)
+            // Note: Ensure your database has a 'rental_hours' column in the orders table.
             const result = await pool.query(
-                `INSERT INTO orders (user_id, equipment_id, delivery_address, total_price, order_status, payment_id) 
-                 VALUES ($1, $2, $3, $4, 'En-Route', $5) RETURNING id`,
-                [userId, tankerId, deliveryAddress, totalPrice, razorpay_payment_id]
+                `INSERT INTO orders (user_id, equipment_id, delivery_address, total_price, rental_hours, order_status, payment_id) 
+                 VALUES ($1, $2, $3, $4, $5, 'En-Route', $6) RETURNING id`,
+                [userId, tankerId, deliveryAddress, totalPrice, rentalHours || 1, razorpay_payment_id]
             );
             
             // Return the new orderId for the frontend to navigate to TrackOrder
@@ -163,8 +164,6 @@ app.post('/api/update-location', async (req, res) => {
     io.to(`order_${orderId}`).emit('location-update', { latitude, longitude });
     res.sendStatus(200);
 });
-
-// ... existing imports and setup
 
 // --- DRIVER / OWNER PORTAL API ---
 
@@ -212,10 +211,6 @@ app.post('/api/driver/update-status', async (req, res) => {
     }
 });
 
-// ... existing socket.io logic (keep this as is) ...
-
-// ... existing imports
-
 // --- ADD PRODUCT API ---
 app.post('/api/add-equipment', async (req, res) => {
     const { userId, businessName, machineryType, priceRate, capacity } = req.body;
@@ -225,11 +220,12 @@ app.post('/api/add-equipment', async (req, res) => {
     }
 
     try {
+        const image_url = `/${machineryType}.jpeg`; 
         await pool.query(
             `INSERT INTO equipment 
             (owner_id, business_name, machinery_type, price_rate, capacity_litres, is_available, image_url) 
-            VALUES ($1, $2, $3, $4, $5, true, '/p1-1.webp')`,
-            [userId, businessName, machineryType, priceRate, capacity || 0]
+            VALUES ($1, $2, $3, $4, $5, true, $6)`,
+            [userId, businessName, machineryType, priceRate, capacity || 0, image_url]
         );
         res.status(201).json({ message: "Equipment listed successfully!" });
     } catch (err) {
@@ -238,6 +234,94 @@ app.post('/api/add-equipment', async (req, res) => {
     }
 });
 
-// ... rest of your code
+app.get('/api/orders/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).send('Order not found');
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+app.post('/api/submit-review', async (req, res) => {
+    const { orderId, equipmentId, rating, comment } = req.body;
+    
+    try {
+        // 1. Save the individual review
+        await pool.query(
+            'INSERT INTO reviews (order_id, equipment_id, rating, comment) VALUES ($1, $2, $3, $4)',
+            [orderId, equipmentId, rating, comment]
+        );
+
+        // 2. Get current stats of the equipment
+        const eqResult = await pool.query('SELECT average_rating, rating_count FROM equipment WHERE id = $1', [equipmentId]);
+        const { average_rating, rating_count } = eqResult.rows[0];
+
+        // 3. Do the Math (Weighted Average)
+        const currentAvg = parseFloat(average_rating) || 0;
+        const currentCount = parseInt(rating_count) || 0;
+        
+        const newCount = currentCount + 1;
+        const newAvg = ((currentAvg * currentCount) + parseInt(rating)) / newCount;
+
+        // 4. Update the Equipment Table
+        await pool.query(
+            'UPDATE equipment SET average_rating = $1, rating_count = $2 WHERE id = $3',
+            [newAvg, newCount, equipmentId]
+        );
+
+        res.json({ success: true, newAvg });
+    } catch (err) {
+        console.error("Rating Error:", err);
+        res.status(500).json({ error: "Failed to submit review" });
+    }
+});
+
+// GET: Admin Dashboard Analytics
+app.get('/api/admin/stats', async (req, res) => {
+    try {
+        // 1. Total Revenue (Using 'total_price' from orders table)
+        const revenueQuery = await pool.query(
+            "SELECT COALESCE(SUM(total_price), 0) as sum FROM orders WHERE order_status = 'Paid' OR order_status = 'Delivered' OR order_status = 'En-Route'"
+        );
+        const totalRevenue = revenueQuery.rows[0].sum;
+
+        // 2. Total Orders Count
+        const ordersQuery = await pool.query("SELECT COUNT(*) FROM orders");
+        const totalOrders = ordersQuery.rows[0].count;
+
+        // 3. Equipment Popularity (Using 'machinery_type' from equipment table)
+        const popularityQuery = await pool.query(`
+            SELECT e.machinery_type as name, COUNT(o.id) as value 
+            FROM orders o 
+            JOIN equipment e ON o.equipment_id = e.id 
+            GROUP BY e.machinery_type
+        `);
+
+        // 4. Recent Transactions
+        // ✅ FIX: Used 'u.full_name' based on your users table schema
+        // ✅ FIX: Used 'total_price' and aliased as 'total_amount' for frontend compatibility
+        const recentQuery = await pool.query(`
+            SELECT o.id, e.machinery_type as name, o.total_price as total_amount, o.order_status, u.full_name as user_name
+            FROM orders o
+            JOIN equipment e ON o.equipment_id = e.id
+            JOIN users u ON o.user_id = u.id
+            ORDER BY o.created_at DESC LIMIT 5
+        `);
+
+        res.json({
+            revenue: totalRevenue,
+            total_orders: totalOrders,
+            popularity: popularityQuery.rows,
+            recent_activity: recentQuery.rows
+        });
+
+    } catch (err) {
+        console.error("ADMIN STATS SQL ERROR:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 server.listen(3000, () => console.log('Backend running on port 3000'));

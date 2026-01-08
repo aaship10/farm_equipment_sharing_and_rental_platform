@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; 
-import img1 from '/p1-1.webp'; 
 
 const BookTanker = () => {
   const navigate = useNavigate();
@@ -22,8 +21,28 @@ const BookTanker = () => {
     fetchEquipment();
   }, []);
 
-  const handleBookNow = (tanker) => {
-    navigate('/confirm-order', { state: { tanker } });
+  const [hoursMap, setHoursMap] = useState({}); // { [tankerId]: hours }
+
+  const setHoursForTanker = (id, hours) => {
+    setHoursMap(prev => ({ ...prev, [id]: hours }));
+  };
+
+  const updateHours = (id, hours) => {
+    setHoursForTanker(id, hours);
+  };
+
+  const getBaseRate = (t) => {
+    if (t.price_rate) return parseFloat(t.price_rate);
+    return (t.capacity_litres / 1000) * t.price_per_1000_litres;
+  };
+
+  const computeTotal = (t, hours) => {
+    const base = getBaseRate(t) || 0;
+    return Math.round(base * hours);
+  };
+
+  const handleBookNow = (tanker, hours = 1) => {
+    navigate('/confirm-order', { state: { tanker, hours } });
   };
 
   // Helper to format capacity based on type
@@ -57,7 +76,7 @@ const BookTanker = () => {
               {/* Image Section */}
               <div className="relative h-48 bg-gray-100">
                 <img 
-                  src={tanker.image_url || img1} 
+                  src={tanker.image_url} 
                   alt={tanker.machinery_type} 
                   className="w-full h-full object-cover" 
                 />
@@ -112,13 +131,32 @@ const BookTanker = () => {
                       <span className="text-sm font-medium text-slate-400">/hr</span>
                     </p>
                   </div>
-                  <button 
-                    onClick={() => handleBookNow(tanker)}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateHours(tanker.id, Math.max(1, (hoursMap[tanker.id] || 1) - 1))}
+                      className="px-3 py-1 border rounded-lg"
+                    >-</button>
+                    <div className="mx-2 text-center w-20 flex flex-row items-end">
+                      <input
+                        min="1"
+                        className="w-full text-center border rounded-md px-2 py-1"
+                        value={hoursMap[tanker.id] || 1}
+                        onChange={(e) => setHoursForTanker(tanker.id, Math.max(1, Number(e.target.value) || 1))}
+                      />
+                      <div className="text-xs text-slate-400">hrs</div>
+                    </div>
+                    <button
+                      onClick={() => updateHours(tanker.id, (hoursMap[tanker.id] || 1) + 1)}
+                      className="px-3 py-1 border rounded-lg"
+                    >+</button>
+                  </div>
+                </div>
+                <button 
+                    onClick={() => handleBookNow(tanker, hoursMap[tanker.id] || 1)}
                     className="flex-1 bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-slate-200 hover:bg-purple-700 transition-colors"
                   >
-                    Rent Now
+                    Rent Now {`(₹${computeTotal(tanker, hoursMap[tanker.id] || 1)})`}
                   </button>
-                </div>
               </div>
             </div>
           ))

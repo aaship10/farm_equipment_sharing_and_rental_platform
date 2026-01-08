@@ -10,6 +10,8 @@ import About from "./pages/About";
 import FAQ from "./pages/FAQ";
 import DriverDashboard from './pages/DriverDashboard';
 import RegisterProduct from './pages/RegisterProduct';
+import RateOrder from './pages/RateOrder';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   // Mock data for Home page
@@ -51,6 +53,8 @@ function App() {
           {/* 8. Static Pages */}
           <Route path="/about" element={<About />} />
           <Route path="/faq" element={<FAQ />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/rate-order/:orderId" element={<RateOrder />} />
 
         </Routes>
       </AuthProvider>
