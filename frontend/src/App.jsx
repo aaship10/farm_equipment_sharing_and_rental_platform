@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './pages/home';
 import Login from './pages/login';
-import BookTanker from './pages/book_rental_products'; // Ensure this matches your filename
+import BookTanker from './pages/book_rental_products'; 
 import ConfirmOrder from './pages/ConfirmOrder'; 
 import { AuthProvider } from './pages/AuthProvider';
-import Header from './pages/components/Header';
+import Header from './pages/components/Header'; // Make sure capitalization matches file name
 import TrackOrder from './pages/TrackOrder'; 
 import About from "./pages/About";
 import FAQ from "./pages/FAQ";
@@ -12,6 +12,8 @@ import DriverDashboard from './pages/DriverDashboard';
 import RegisterProduct from './pages/RegisterProduct';
 import RateOrder from './pages/RateOrder';
 import AdminDashboard from './pages/AdminDashboard';
+import MyListings from './pages/MyListings';
+import MyBookings from './pages/MyBookings';
 
 function App() {
   // Mock data for Home page
@@ -41,7 +43,7 @@ function App() {
           {/* 4. Login */}
           <Route path="/login" element={<Login />} />
           
-          {/* 5. Product Listing (Fetching from DB now) */}
+          {/* 5. Product Listing */}
           <Route path="/book-rental-product" element={<BookTanker />} />
           
           {/* 6. Order Confirmation */}
@@ -53,6 +55,12 @@ function App() {
           {/* 8. Static Pages */}
           <Route path="/about" element={<About />} />
           <Route path="/faq" element={<FAQ />} />
+
+          {/* 9. YOUR FEATURES (My Listings & My Bookings) */}
+          <Route path="/my-listings" element={<MyListings />} />
+          <Route path="/cart" element={<MyBookings />} />
+
+          {/* 10. TEAMMATES FEATURES (Admin & Rating) */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/rate-order/:orderId" element={<RateOrder />} />
 

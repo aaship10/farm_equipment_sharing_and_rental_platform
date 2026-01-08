@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; 
+import { useParams, useNavigate } from "react-router-dom"; // Added useNavigate (Teammate's feature)
 import { io } from "socket.io-client";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css"; 
@@ -14,14 +14,14 @@ L.Icon.Default.mergeOptions({
 });
 
 // ⚠️ SOCKET CONNECTION
-// If testing with a phone, replace 'localhost' with your laptop's IP (e.g., "http://192.168.1.5:3000")
 const socket = io("http://localhost:3000"); 
 
-// Helper component to smoothly pan the map when coords change
+// Helper component (Using YOUR version because invalidateSize is safer)
 function MapController({ coords }) {
   const map = useMap();
   useEffect(() => {
     if (coords) {
+      map.invalidateSize(); // Prevents gray box glitches
       map.setView([coords.latitude, coords.longitude], 15);
     }
   }, [coords, map]);
@@ -30,7 +30,7 @@ function MapController({ coords }) {
 
 const TrackOrder = () => {
   const { orderId } = useParams();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // For redirecting when delivered
   const [location, setLocation] = useState(null);
   const [status, setStatus] = useState("Waiting for driver signal...");
 
@@ -39,7 +39,7 @@ const TrackOrder = () => {
     console.log(`🔵 Joining tracking room: order_${orderId}`);
     socket.emit("join-tracking", orderId);
     
-    // 2. Handle Reconnection
+    // 2. Handle Reconnection (Teammate's feature - Robustness)
     socket.on("connect", () => {
         console.log("✅ Reconnected to Server");
         socket.emit("join-tracking", orderId);
@@ -52,7 +52,7 @@ const TrackOrder = () => {
       setStatus("Driver is Live & Moving");
     });
 
-    // 4. Listen for Delivery Completion (Redirects to RateOrder)
+    // 4. Listen for Delivery Completion (Teammate's feature - UX)
     socket.on("order-status-change", (data) => {
         console.log("🔔 Order Status Update:", data.status);
         if (data.status === 'Delivered') {
@@ -68,52 +68,64 @@ const TrackOrder = () => {
     };
   }, [orderId, navigate]);
 
+  // --- RENDERING (Using YOUR Better Design) ---
   return (
-    <div className="p-4 font-poppins min-h-screen bg-gray-50 flex flex-col items-center">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">
-        Tracking Order #{orderId}
+    <div className="p-10 font-poppins min-h-screen bg-gray-50">
+      <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
+        Live Tracking: Order #{orderId}
       </h2>
       
-      {/* Live Status Badge */}
-      <div className={`mb-4 px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-colors duration-300 ${location ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
-        <span className="mr-2">{location ? "●" : "○"}</span>
-        Status: {status}
-      </div>
-      
-      {/* Map Container */}
-      <div className="w-full max-w-5xl h-[600px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200 relative z-0">
+      <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
         {!location ? (
-          <div className="h-full flex flex-col items-center justify-center bg-blue-50/50 text-center p-6">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 border-solid mb-4"></div>
-            <h3 className="text-xl font-bold text-blue-900">Waiting for Driver GPS...</h3>
-            <p className="text-sm text-gray-500 mt-2 max-w-xs">
-              The map will load automatically once the driver clicks "Start Delivery" on their device.
+          // Loading State (Your Design)
+          <div className="h-[600px] flex flex-col items-center justify-center bg-blue-50/50">
+            <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-blue-600 border-solid mb-4"></div>
+            <p className="text-blue-900 font-semibold text-lg animate-pulse">
+              {status}
+            </p>
+            <p className="text-blue-600/70 text-sm mt-2">
+              Waiting for driver to start the delivery...
             </p>
           </div>
         ) : (
-          <MapContainer 
-            center={[location.latitude, location.longitude]} 
-            zoom={15} 
-            scrollWheelZoom={true}
-            style={{ height: "100%", width: "100%" }}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap contributors'
-            />
-            <Marker position={[location.latitude, location.longitude]}>
-              <Popup>
-                <div className="text-center">
-                  <b>🚜 Farm Equipment</b><br />
-                  Current Location<br/>
-                  <span className="text-xs text-gray-500">
-                    {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
-                  </span>
-                </div>
-              </Popup>
-            </Marker>
-            <MapController coords={location} />
-          </MapContainer>
+          <div className="flex flex-col">
+            {/* Status Header (Your Design + Dynamic Status) */}
+            <div className="p-5 bg-green-600 text-white flex justify-between items-center shadow-md z-10">
+              <div className="flex items-center space-x-3">
+                <div className="h-3 w-3 bg-white rounded-full animate-ping"></div>
+                <span className="font-bold uppercase tracking-wider">{status}</span>
+              </div>
+              <div className="text-right">
+                <p className="text-xs opacity-80">Current Coordinates</p>
+                <p className="font-mono font-medium">
+                  {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                </p>
+              </div>
+            </div>
+            
+            {/* Map Container (Your Design with fixed height) */}
+            <div className="relative" style={{ height: "600px", width: "100%", zIndex: 1 }}>
+              <MapContainer 
+                center={[location.latitude, location.longitude]} 
+                zoom={15} 
+                scrollWheelZoom={true}
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; OpenStreetMap contributors'
+                />
+                <Marker position={[location.latitude, location.longitude]}>
+                  <Popup className="font-poppins">
+                    <b>🚜 Machinery</b><br />
+                    {status}
+                  </Popup>
+                </Marker>
+                {/* Controller for smooth updates */}
+                <MapController coords={location} />
+              </MapContainer>
+            </div>
+          </div>
         )}
       </div>
     </div>
